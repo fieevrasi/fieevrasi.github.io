@@ -1,0 +1,192 @@
+---
+setitle: "Practical Machine Learning Course Project"
+author: "Eeva Rasi"
+date: "26 elokuuta 2017"
+output: 
+  html_document:
+    keep_md: true
+---
+
+
+# Practical Machine Learning 
+
+#### author: Eeva Rasi
+#### date: 26.8.2017
+
+
+
+## Problem definition and background
+
+In this project, the goal will be to study Pima Indians Diabetes Database and build a machine
+learning model to predict whether or not a patient has diabetes.
+
+The dataset contains 9 variables:
+
+* Number of pregnancies
+* Glocose
+* Blood Pressure
+* Skin thickness
+* Insulin
+* BMI
+* Diabetes pedigree function
+* Age
+* Outcome
+
+The `Outcome` variable shows whether or not a patient has diabetes:
+
+* Yes = 1
+* No = 2
+
+
+## Data
+
+The dataset for this project are available here:
+
+https://www.kaggle.com/uciml/pima-indians-diabetes-database
+
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  fig.path = "figures/figure-"
+)
+```
+
+```{r results='hide', message=FALSE, warning=FALSE}
+
+# Needed libraries
+library(caret)
+library(corrplot)
+library(xgboost)
+library(randomForest)
+library(stats)
+library(knitr)
+library(party)
+library(mlbench)
+
+setwd("C:\\WD\\Coursera\\Practical Machine Learning")
+
+# Load CSV file
+diabetes.df = read.csv("diabetes.csv", stringsAsFactors=FALSE)
+
+```
+
+## Data Analysis & Cleansing
+
+The training dataset contains 768 observations and 9 features We start cleaning the data by checking and removing near zero variables and checking and removing variables that are mostly NA. This dataset was already clean as `NZV` variable is empty and `naVar` variable is FALSE for all columns.
+
+```{r message=FALSE, warning=FALSE}
+set.seed(1234)
+
+head(diabetes.df)
+
+# Check and remove near zero variables
+NZV <- nearZeroVar(diabetes.df)
+length(NZV)
+
+# Check and remove variables that are mostly NA
+naVar <- sapply(diabetes.df, function(x) mean(is.na(x))) > 0.97
+naVar
+
+```
+We continue by splitting the original dataset into a training set `train.data` and testing set `test.data`.
+
+```{r results='hide', message=FALSE, warning=FALSE}
+
+# Create datasets for training and testing
+indTrain  <- createDataPartition(diabetes.df$Outcome, p=0.7, list=FALSE)
+train.data <- diabetes.df[indTrain, ]
+test.data  <- diabetes.df[-indTrain, ]
+
+```
+
+## Feature Selection
+
+Feature selection is important part of building a prediction model. A correlation matrix can be used to find out relationships
+between different features. The highly correlated variables are shown in dark colors in the graph below.
+
+```{r message=FALSE, warning=FALSE}
+# Correlation matrix
+corMatrix <- cor(train.data[, -54])
+# Plot correlation
+corrplot(corMatrix, order = "FPC", method = "circle", type = "lower", 
+         tl.cex = 0.8, tl.col = rgb(0, 0, 0))
+
+```
+
+The `caret` package also contains nice tools for feature selection. The importance of features can be estimated by building a model.
+
+```{r message=FALSE, warning=FALSE, cache=TRUE}
+
+# Convert Outcome variable as a factor
+train.data$Outcome <- as.factor(train.data$Outcome)
+test.data$Outcome <- as.factor(test.data$Outcome)
+
+# Prepare training scheme
+control <- trainControl(method="repeatedcv", number=5, repeats=3)
+# Train the model
+model <- train(Outcome~., data=train.data, method="knn", trControl=control)
+# Estimate variable importance
+importance <- varImp(model, scale=FALSE)
+# Summarize importance
+print(importance)
+# Plot importance
+plot(importance)
+
+```
+
+The correlation plot and a model both show that Glucose, Age and BMI seems to be the most important features.
+
+## Prediction Models 
+
+Now we will create a prediction model to predict the `Outcome` variable.
+I'm using four different out of the box classifiers to find out which classification method suites best for this data.
+5-fold cross-validation is also uset with all methods.
+
+```{r message=FALSE, warning=FALSE, cache=TRUE}
+
+set.seed(123)
+
+# Cross-validation
+control <- trainControl(method="repeatedcv", number=5, repeats=3)
+
+# K-Nearest Neighbors
+modelKNN <- train(Outcome~., data=train.data, method="knn", trControl=control)
+
+# Logistic regression
+modelGLM <- train(Outcome~., data=train.data, method="glm", trControl=control)
+
+# Random Forest
+modelRF <- train(Outcome~., data=train.data, method="rf", trControl=control)
+
+# Naive Bayes
+modelNB <- train(Outcome~., data=train.data, method="nb", trControl=control)
+
+# Collect results
+results <- resamples(list(KNN=modelKNN, GLM=modelGLM, RF=modelRF, NB=modelNB))
+
+# Summary
+summary(results)
+
+# Plot results
+bwplot(results)
+
+```
+
+The Naive Bayes and Logistic Regression seems to be best methods. Finally we will use our models to predict `Outcome` variable in `test.data` dataset.
+
+```{r message=FALSE, warning=FALSE, cache=TRUE}
+
+# Predict the Outcome variable with Naive Bayes
+predictNB <- predict(modelNB, newdata=test.data)
+confNB <- confusionMatrix(predictNB, test.data$Outcome)
+confNB
+
+```
+```{r message=FALSE, warning=FALSE, cache=TRUE}
+
+# Predict the Outcome variable with Logistic Regression
+predictGLM <- predict(modelGLM, newdata=test.data)
+confGLM <- confusionMatrix(predictGLM, test.data$Outcome)
+confGLM
+
+```
