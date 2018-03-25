@@ -1,0 +1,184 @@
+---
+title: "NLP with the Simpsons"
+author: "Eeva Rasi"
+date: "11th 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  fig.path = "figures/figure-"
+)
+```
+
+## Overview
+
+Natural Language Processing (NLP) is an area of computer science and AI concerned with the interactions between computers and human languages [1]. Tasks in this area may contain for example text summarizing, sentiment analysis and text categorization. During this exercise I will demostrate some NLP and text mining features. 
+
+I'm using the Simpsons dataset provided by the Kaggle:
+https://www.kaggle.com/ambarish/fun-in-text-mining-with-simpsons/data
+
+The dataset contains the characters, locations, episode details, and script lines for approximately 600 Simpsons episodes.
+I will use only the characters and script lines data.
+
+
+```{r results='hide', message=FALSE, warning=FALSE}
+# needed libraries
+library(ggplot2) 
+library(kableExtra)
+library(knitr)
+library(tm)
+library(SnowballC)
+library(wordcloud)
+library(stringi)
+library(tidytext)
+library(dplyr)
+```
+
+## Exploratory Data Analysis
+
+### Getting the data
+
+```{r include=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
+
+# reading the data
+scripts.df = read.csv("./simpsons_script_lines.csv", stringsAsFactors=FALSE)
+characters.df = read.csv("./simpsons_characters.csv", stringsAsFactors=FALSE)
+
+# convert character_id as integer to enable join function
+scripts.df$character_id = as.integer(scripts.df$character_id)
+
+# joining together scripts & characters, using inner join to find only scripts associated with a character
+all.df <- inner_join(scripts.df, characters.df, by = c("character_id" = "id"))
+```
+
+## Cleaning and preprocessing
+
+This dataset already contains a normalized text column, but normally when dealing with text we need to do some
+preprocessing and cleaning like:
+
+1. Make all character in lower case
+2. Remove numbers
+3. Remove punctuation
+4. Remove extra whitespaces
+5. Remove Non-ASCII characters
+6. Remove stop words
+7. Stemming
+
+`tidytext` package contains`unnest_token` function which does the following:
+
+* Splits the text into single words
+* Removes all punctuation
+* Converts each word to lowercase
+
+For text analysis I create a subset called `simpsons.df` which only contains columns *id, normalized_text*.
+I also filter empty scripts.
+```{r include=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
+
+simpsons.df <- all.df %>% 
+               select(id, normalized_text) %>%
+               filter(! normalized_text == "")
+               
+  
+```
+ 
+## Text Analysis
+ 
+### The most common words
+ 
+The word cloud below shows the top 50 most frequent words. I have used `anti_join` and `stop_words` to remove stop words as they are not useful for an analysis. Stop words are typically extremely common words such as “the”, “of”, “to”, and so forth in English [2].
+```{r include=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
+
+simpsons.df  %>%          
+            unnest_tokens(word, normalized_text) %>%
+            anti_join(stop_words) %>%
+            count(word,sort = TRUE) %>%
+            head(50) %>%
+            with(wordcloud(word, n, max.words = 50, random.order=FALSE, colors=brewer.pal(6, "Dark2")))
+
+```
+ 
+### N-Grams
+
+While analysing texts we are not interested only about single words but also relationships between words. For that purpose we can use N-grams are which define how often word A is followed by word B [2].
+
+```{r include=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
+
+# create bigrams
+bigrams.df <- simpsons.df %>%
+              select("normalized_text")  %>%
+              unnest_tokens(bigram, normalized_text, token = "ngrams", n = 2)
+
+# create trigrams
+trigrams.df <- simpsons.df %>%
+              select("normalized_text")  %>%
+              unnest_tokens(trigram, normalized_text, token = "ngrams", n = 3)
+
+# count & sort
+bigrams.df <- bigrams.df %>%
+              count(bigram, sort = TRUE)
+
+trigrams.df <- trigrams.df %>%
+               count(trigram, sort = TRUE)
+
+```
+
+Top 20 bigrams and trigrams.         
+```{r include=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
+
+# create a plot to visualize top 20 bigrams
+g <- ggplot(head(bigrams.df,20), aes(x=bigram, y=n))
+g + geom_bar(stat="identity", width = 0.5, fill="tomato2") + 
+      labs(title="Top 20 bigrams") +
+      theme(axis.text.x = element_text(angle=65, vjust=0.6))   
+
+# create a plot to visualize top 20 trigrams
+g <- ggplot(head(trigrams.df,20), aes(x=trigram, y=n))
+g + geom_bar(stat="identity", width = 0.5, fill="tomato2") + 
+      labs(title="Top 20 trigrams") +
+      theme(axis.text.x = element_text(angle=65, vjust=0.6))          
+
+```
+
+### Sentiment analysis
+
+As a human we intuitively understand a text, we use our understanding whether a section of text is positive or negative. But for computers we need to use the tools of text mining to recognise the emotional content of text programmatically [2]. The `tidytext` package contains three sentiment different lexicons in the sentiments dataset:
+
+* AFINN (by Finn Årup Nielsen)
+* bing (by Bing Liu and co.)
+* nrc (by Saif Mohammad & Peter Turney)
+
+I'm using `afinn` to find out most positive and most negative words.
+
+```{r include=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
+
+# Count lexicon scores
+afinn.scores <- simpsons.df %>%          
+                unnest_tokens(word, normalized_text) %>%
+                anti_join(stop_words) %>%
+                inner_join(get_sentiments("afinn"), by = "word") %>%
+                group_by(word) %>%
+                summarize(occurences = n(), scores = sum(score)) %>%
+                arrange(scores)
+
+# Visualize results
+afinn.scores %>%
+                top_n(30, abs(scores)) %>%
+                mutate(word = reorder(word, scores)) %>%
+                ggplot(aes(word, scores, fill = scores < 0)) +
+                geom_col(show.legend = FALSE) +
+                coord_flip() +
+                labs(title="The most positive & negative words") 
+
+```
+
+
+### References
+
+[1] Wikipedia, Natural Language Processing definition, https://en.wikipedia.org/wiki/Natural-language_processing
+
+[2] Text Mining with R, Julia Silge & David Robinson, https://www.tidytextmining.com
