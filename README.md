@@ -11,10 +11,12 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 # Data Science Portfolio
+&NewLine;
+&NewLine;
 
 I believe in learning while doing. This data science related portfolio contains some snapshots about things I have done lately.
 
-### Leaflet & GeoJSON 
+### 1. Leaflet & GeoJSON 
 
 ![](images/leaflet.png) 
 
@@ -27,9 +29,10 @@ Demo: http://rpubs.com/fieevrasi/372844
 GeoJSON data:
 http://data.hslhrt.opendata.arcgis.com/datasets/454915a7b25e4a7eac99383c908dc56f_0.geojson
 
+&NewLine;
+&NewLine;
 
-
-### NLP with the TidyText and the Simpsons
+### 2. NLP with the TidyText and the Simpsons
 
 During this exercise I will demostrate some natural language processing (NLP) and text mining features. I'm using `tidytext` package and the Simpsons dataset which contains the characters and script lines for the Simpsons episodes.
 
@@ -40,9 +43,10 @@ https://fieevrasi.github.io/NLP/NLP_Simpsons.html
 Data:
 https://www.kaggle.com/ambarish/fun-in-text-mining-with-simpsons/data
 
+&NewLine;
+&NewLine;
 
-
-### Practical Machine Learning
+### 3. Practical Machine Learning
 
 In this project, the goal will be to study Pima Indians Diabetes Database and build a machine
 learning model to predict whether or not a patient has diabetes.
