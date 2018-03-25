@@ -1,0 +1,51 @@
+---
+title: "Leaflet Demo"
+author: "Eeva Rasi"
+date: "9th January 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  fig.path = "figures/figure-"
+)
+
+```
+
+## Leaflet Demo
+
+This demo uses an open source data from http://www.hri.fi/en/ which is a service providing Open data from Finland the Helsinki Metropolitan Area for people to use freely.
+
+I'm using the geojson dataset containing Helsinki Region Transport tariff zones.
+http://data.hslhrt.opendata.arcgis.com/datasets/454915a7b25e4a7eac99383c908dc56f_0.geojson
+
+**This demo was created 9th January 2018**
+
+
+```{r results='hide', message=FALSE, warning=FALSE}
+library("leaflet")
+library("geojsonio")
+```
+
+
+```{r include=TRUE, message=FALSE, warning=FALSE}
+url <- 'http://data.hslhrt.opendata.arcgis.com/datasets/454915a7b25e4a7eac99383c908dc56f_0.geojson'
+
+tariffData <- geojsonio::geojson_read(url, what = "sp")
+
+
+cols <- colorFactor(topo.colors(nrow(tariffData)),tariffData$NIMI)
+
+leaflet() %>% addProviderTiles(providers$Stamen.Terrain) %>%
+  addPolygons(data=tariffData, opacity = 5,
+              label=~NIMI, weight = 1, fillColor = ~cols(NIMI))
+
+```
+
+
+
